@@ -1,4 +1,5 @@
 from hashlib import sha256
+import requests
 from http.cookiejar import MozillaCookieJar
 from json import loads
 from os import path
@@ -464,28 +465,44 @@ def terabox(url):
         return details['contents'][0]['url']
     return details
 
-def filepress(url):
-    with create_scraper() as session:
-        try:
-            url = session.get(url).url
-            raw = urlparse(url)
-            json_data = {
-                'id': raw.path.split('/')[-1],
-                'method': 'publicDownlaod',
-            }
-            api = f'{raw.scheme}://{raw.hostname}/api/file/downlaod/'
-            res2 = session.post(api, headers={'Referer': f'{raw.scheme}://{raw.hostname}'}, json=json_data).json()
-            json_data2 = {
-               'id':res2["data"],
-               'method': 'publicUserDownlaod',
-            }
-            api2 = 'https://new2.filepress.store/api/file/downlaod2/'
-            res = session.post(api2, headers={'Referer': f'{raw.scheme}://{raw.hostname}'}, json=json_data2).json()
-        except Exception as e:
-            raise DirectDownloadLinkException(f'ERROR: {e.__class__.__name__}')
-    if 'data' not in res:
-        raise DirectDownloadLinkException(f'ERROR: {res["statusText"]}')
-    return f'https://drive.google.com/uc?id={res["data"]}&export=download'
+
+def filepress(url, api_url="https://new9.filepress.store/api/file/downlaod/", api2_url="https://new9.filepress.store/api/file/downlaod2/"):
+    client = requests.session()
+    try:
+        res = client.get(url)
+        res.raise_for_status()
+        raw = urlparse(url)
+        json_data = {
+            'id': raw.path.split('/')[-1],
+            'method': 'cloudR2Downlaod',
+        }
+        api = api_url
+        api2 = api2_url
+
+        res = client.post(api,
+                          headers={
+                              'Referer': f'{raw.scheme}://{raw.hostname}'
+                          },
+                          json=json_data)
+        res.raise_for_status()  
+    except requests.exceptions.RequestException as e:
+        return f'ERROR: {e}'
+
+    if 'data' not in res.json():
+        return f'ERROR: {res.json()["statusText"]}'
+    else:
+        json_data = {
+            'id': res.json()['data']['downloadId'],
+            'method': 'cloudR2Downlaod',
+        }
+        res = client.post(api2,
+                          headers={'Referer': f'{raw.scheme}://{raw.hostname}'},
+                          json=json_data)
+        res.raise_for_status()  
+        if res.status_code == 200:
+            return res.json()['data']
+        else:
+            return f'Failed At API2 With Status {res.json()["statusText"]}'
 
 
 def gdtot(url):
